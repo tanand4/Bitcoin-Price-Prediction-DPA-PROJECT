@@ -66,8 +66,8 @@ print(cp + theme_bw())
 
 ```{r}
 # Assuming 'data' is your actual data frame
-data_xts <- xts(data[, -1], order.by = as.POSIXct(data$timestamp))
-data_ts <- ts(data_xts[, 4], frequency = 7000, start = c(2016, 4, 27))
+data_xts <- xts(data[, -1], order.by = data$timestamp)
+data_ts <- ts(data_xts[, 4], frequency = 24*365, start = c(2016, 4, 27))
 
 # Checking for trends and seasonality
 dects2 <- decompose(data_ts)  # Obtaining the trends and seasonality
@@ -81,8 +81,8 @@ ap + theme_bw()
 #############  Decompose the data to identify any such characteristics: ############# 
 
 # Assuming 'hourly_data' is your hourly data frame with a timestamp column
-hourly_xts <- xts(data[, -1], order.by = as.POSIXct(data$timestamp))
-hourly_ts <- ts(hourly_xts[, 1], frequency = 7000)
+hourly_xts <- xts(data[, -1], order.by = data$timestamp)
+hourly_ts <- ts(hourly_xts[, 1], frequency = 24*365)
 
 dects <- decompose(hourly_ts)
 
@@ -118,10 +118,16 @@ print(result)
 
 ############# Making the data Stationary ############# 
 ############# Differenceing method ############# 
-closing_diff <- diff(data$close, differences= 2)
-closing_diff <- closing_diff[!is.na(closing_diff)]
+closing_diff <- diff(data$close, differences= 1)
+#closing_diff <- closing_diff[!is.na(closing_diff)]
+
+# Perform Dickey-Fuller test
+result2 <- adf.test(closing_diff, alternative = 'stationary')
+print(result2)
+```
 
 
+```{r}
 acf(closing_diff)
 pacf(closing_diff)
 
@@ -131,12 +137,41 @@ pacf(closing_diff)
 ```{r}
 testdata <- data[, 5]
 
-model <- arima(closingFigures, order = c(1,2,9))
-model_frame <- as.data.frame(forecast(model, h = 10))
+#model <- arima(closingFigures, order = c(24,1,0))
+model <- auto.arima(closingFigures)
+#print(model)
+#forecast(model,h=24*90)
+#autoplot(forecast(model,h=24*90))
+
+forecast_values <- forecast(model, h = 24*90,level = c(95))
+model_frame <- as.data.frame(forecast_values)
 model_frame.index.name = 'index'
+#names(model_frame)[1] <- 'index'
+#comparison <- data.frame(timestamp = data$timestamp, actual = testdata, forecast = c(testdata[length(testdata)], model_frame[, 1]))
 comparison <- cbind(testdata, model_frame[,1])
-plot(forecast(model))
-ggplot() + geom_line(data = model_frame, aes(data$timestamp, comparison[,2]), color = "a") + geom_line(data = comparison, aes(data$timestamp, comparison[,3]), color = "b") + labs(title="Forecast vs Actual Price")+ ylab("Closing Price ($)") + xlab("Date") + scale_x_date(date_labels = '%d %b %y')
+#data$timestamp <- as.Date(data$timestamp)
+autoplot(forecast_values)+labs(y="Closing Price")
+#lines(forecast_values$, col ="pink")
+
+```
+
+
+```{r}
+# Validate our model using the following methods
+
+# verifying the model residuals are not correlated
+et = residuals(forecast_values)
+acf(et)
+
+
+#Checking that the residuals have constant zero mean 
+plot.ts(et)
+
+#Verify that the residuals are normally distributed 
+gghistogram(et)
+
+#performing the Boxtest and rejecting or accepting the null hypothesis whther are residuals are independent and thereis no correlation amongs them
+Box.test(et,lag = 7,type = c("Box-Pierce","Ljung-Box"))
 ```
 
 
@@ -144,6 +179,19 @@ ggplot() + geom_line(data = model_frame, aes(data$timestamp, comparison[,2]), co
 
 ```
 
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
 
 
 
